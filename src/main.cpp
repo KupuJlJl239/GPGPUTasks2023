@@ -75,7 +75,7 @@ void aplusb_on_device(cl_platform_id platform, cl_device_id device, unsigned int
     cl_mem buf_bs = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(float)*n, bs.data(), &errcode_ret);
     OCL_SAFE_CALL(errcode_ret);
 
-    cl_mem buf_cs = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float)*n, nullptr, &errcode_ret);
+    cl_mem buf_cs = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(float)*n, cs.data(), &errcode_ret);
     OCL_SAFE_CALL(errcode_ret);
 
 
