@@ -5,7 +5,7 @@
 #include <libgpu/shared_device_buffer.h>
 
 // Этот файл будет сгенерирован автоматически в момент сборки - см. convertIntoHeader в CMakeLists.txt:22
-#include "cl/aplusb_cl.h"
+#include "cl/h/aplusb_cl.h"
 
 #include <vector>
 #include <iostream>

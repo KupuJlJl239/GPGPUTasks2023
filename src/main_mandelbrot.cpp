@@ -6,7 +6,7 @@
 #include <libgpu/shared_device_buffer.h>
 #include <libimages/images.h>
 
-#include "cl/mandelbrot_cl.h"
+#include "cl/h/mandelbrot_cl.h"
 
 
 void mandelbrotCPU(float* results,
