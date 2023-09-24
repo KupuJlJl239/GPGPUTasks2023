@@ -60,10 +60,10 @@ uint generate_array(uint n, VEC<uint>& as){
 }
 
 
-uint gpu_sum(const VEC<uint> as, const char* compiled_kernel, size_t kernel_length, const char* kernel_name){
+uint gpu_sum(const VEC<uint> as, const char* compiled_kernel, size_t kernel_length, const gpu::WorkSize& work_size){
     const uint n = as.size();
 
-    ocl::Kernel kernel(compiled_kernel, kernel_length, kernel_name);
+    ocl::Kernel kernel(compiled_kernel, kernel_length, "sum");
     kernel.compile();
 
     gpu::gpu_mem_32u as_gpu, sum_gpu;
@@ -72,8 +72,8 @@ uint gpu_sum(const VEC<uint> as, const char* compiled_kernel, size_t kernel_leng
 
     as_gpu.writeN(as.data(), n);
 
-    kernel.exec(gpu::WorkSize(128, n),
-                as_gpu, sum_gpu);
+    kernel.exec(work_size,
+                n, as_gpu,sum_gpu);
 
     uint sum;
     sum_gpu.readN(&sum, 1);
@@ -100,8 +100,8 @@ int main(int argc, char **argv)
 
     auto simple_cpu_sum = [](const VEC<uint>& as){
         uint sum = 0;
-        for (int i = 0; i < as.size(); ++i) {
-            sum += as[i];
+        for (uint a : as) {
+            sum += a;
         }
         return sum;
     };
@@ -116,11 +116,45 @@ int main(int argc, char **argv)
     };
 
     auto base_gpu_sum = [](const VEC<uint>& as){
-        return gpu_sum(as, sum_base_kernel, sum_base_kernel_length, "sum");
+        // число item-ов равно длине массива
+        auto work_size = gpu::WorkSize(128, as.size());
+        return gpu_sum(as, sum_base_kernel, sum_base_kernel_length, work_size);
+    };
+
+    auto cycle_gpu_sum = [](const VEC<uint>& as){
+        uint elements_per_item = 256;
+        auto work_size = gpu::WorkSize(128, as.size()/elements_per_item);
+        return gpu_sum(as, sum_cycle_kernel, sum_cycle_kernel_length, work_size);
+    };
+
+    auto coalesced_gpu_sum = [](const VEC<uint>& as){
+        uint elements_per_item = 256;
+        auto work_size = gpu::WorkSize(128, as.size()/elements_per_item);
+        return gpu_sum(as, sum_coalesced_kernel, sum_coalesced_kernel_length, work_size);
+    };
+
+    auto local_mem_gpu_sum = [](const VEC<uint>& as){
+        // число item-ов чуть больше длины массива
+        uint group_size = 64;
+        uint groups_count = (as.size() + group_size - 1) / group_size;
+        auto work_size = gpu::WorkSize(64, group_size * groups_count);
+        return gpu_sum(as, sum_local_mem_kernel, sum_local_mem_kernel_length, work_size);
+    };
+
+    auto tree_gpu_sum = [](const VEC<uint>& as){
+        // число item-ов чуть больше длины массива
+        uint group_size = 64;
+        uint groups_count = (as.size() + group_size - 1) / group_size;
+        auto work_size = gpu::WorkSize(64, group_size * groups_count);
+        return gpu_sum(as, sum_tree_kernel, sum_tree_kernel_length, work_size);
     };
 
     test_sum("CPU one thread", reference_sum, as, benchmarkingIters, simple_cpu_sum);
     test_sum("CPU multi thread", reference_sum, as, benchmarkingIters, openmp_cpu_sum);
     test_sum("GPU atomic add", reference_sum, as, benchmarkingIters, base_gpu_sum);
+    test_sum("GPU with cycle", reference_sum, as, benchmarkingIters, cycle_gpu_sum);
+    test_sum("GPU with coalesced cycle", reference_sum, as, benchmarkingIters, coalesced_gpu_sum);
+    test_sum("GPU with local mem", reference_sum, as, benchmarkingIters, local_mem_gpu_sum);
+    test_sum("GPU with tree sum", reference_sum, as, benchmarkingIters, tree_gpu_sum);
 
 }
