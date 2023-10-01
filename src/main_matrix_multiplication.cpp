@@ -58,10 +58,10 @@ int main(int argc, char **argv)
     context.init(device.device_id_opencl);
     context.activate();
 
-    int benchmarkingIters = 1;
-    unsigned int M = 64;
-    unsigned int K = 64;
-    unsigned int N = 64;
+    int benchmarkingIters = 10;
+    unsigned int M = 1024;
+    unsigned int K = 1024;
+    unsigned int N = 1024;
     const float gflops = ((float) M * K * N * 2) / (1000 * 1000 * 1000); // умножить на два, т.к. операция сложения и умножения
 
     std::vector<float> A(M*K, 0);
@@ -105,12 +105,11 @@ int main(int argc, char **argv)
 
 
     auto test_matrix_mult_gpu =
-            [&](const char* name, const char* code, size_t length, const char* k_name)
+            [&](const char* name, const char* code, size_t length, const char* k_name, const gpu::WorkSize& work_size)
     {
         ocl::Kernel matrix_multiplication_kernel(code, length, k_name);
         matrix_multiplication_kernel.compile();
 
-        auto work_size = gpu::WorkSize(16, 16, M, N);
         auto run = [&](){
             matrix_multiplication_kernel.exec(work_size, A_gpu, B_gpu, result_gpu, M, K, N);
         };
@@ -121,8 +120,12 @@ int main(int argc, char **argv)
         check_result(result, expected);
     };
 
-    test_matrix_mult_gpu("0", matrix_multiplication_0, matrix_multiplication_0_length, "matrix_multiplication");
-    test_matrix_mult_gpu("1", matrix_multiplication_1, matrix_multiplication_1_length, "matrix_multiplication");
+    test_matrix_mult_gpu("0", matrix_multiplication_0, matrix_multiplication_0_length, "matrix_multiplication",
+                         gpu::WorkSize(16, 16, M, N));
+    test_matrix_mult_gpu("1", matrix_multiplication_1, matrix_multiplication_1_length, "matrix_multiplication",
+                         gpu::WorkSize(16, 16, M, N));
+    test_matrix_mult_gpu("2", matrix_multiplication_2, matrix_multiplication_2_length, "matrix_multiplication",
+                         gpu::WorkSize(16, 4, M, N/4));
 
 
 
