@@ -59,9 +59,9 @@ int main(int argc, char **argv)
     context.activate();
 
     int benchmarkingIters = 10;
-    unsigned int M = 1024;
-    unsigned int K = 1024;
-    unsigned int N = 1024;
+    unsigned int M = 256;
+    unsigned int K = 256;
+    unsigned int N = 256;
     const float gflops = ((float) M * K * N * 2) / (1000 * 1000 * 1000); // умножить на два, т.к. операция сложения и умножения
 
     std::vector<float> A(M*K, 0);
