@@ -20,11 +20,10 @@ __kernel void sum(const unsigned int n, __global int* arr, __global int* sum){
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    // На самом деле в buf считаются префиксные суммы
     int shift = 1;
     while(shift < gsize){
-        int idx = (int)lid - shift;
-        if(idx >= 0){
+        int idx = (int)lid + shift;
+        if((lid % (2*shift)) == 0){
             buf[lid] += buf[idx];
         }
         shift *= 2;
@@ -32,6 +31,6 @@ __kernel void sum(const unsigned int n, __global int* arr, __global int* sum){
     }
 
     if(lid == 0){
-        atomic_add(sum, buf[gsize-1]);
+        atomic_add(sum, buf[0]);
     }
 }
