@@ -10,11 +10,10 @@
 __kernel void merge(__global float* in, __global float* out, uint step)
 {
 
-#define CHECK_LESS(i, a, j, b) a < b || (a == b && i < j)  // a = in[i], b = in[j]
+#define CHECK_LESS(i, j) in[i] < in[j] || (in[i] == in[j] && i < j)
 
     const uint n = get_global_size(0);
     const uint idx = get_global_id(0);
-    float val = in[idx];
     const uint size = 1<<step;
 
     uint nA = idx / size;
@@ -28,16 +27,16 @@ __kernel void merge(__global float* in, __global float* out, uint step)
     uint p0 = nB * size;
     uint p1 = p0 + size - 1;
 
-    if(CHECK_LESS(idx, val, p0, in[p0])){
+    if(CHECK_LESS(idx, p0)){
         countB = 0;
     }
-    else if(CHECK_LESS(p1, in[p1], idx, val)){
+    else if(CHECK_LESS(p1, idx)){
         countB = size;
     }
     else {
         while (p1 - p0 > 1) {
             uint p = (p0 + p1) / 2;
-            if (CHECK_LESS(p, in[p], idx, val))
+            if (CHECK_LESS(p, idx))
                 p0 = p;
             else
                 p1 = p;

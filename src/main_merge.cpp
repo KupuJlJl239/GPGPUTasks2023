@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфера данных
 
             for(uint step = 0; 1<<step < n; step++) {
-                merge.exec(gpu::WorkSize(1, as.size()), *in_gpu, *out_gpu, step);
+                merge.exec(gpu::WorkSize(128, as.size()), *in_gpu, *out_gpu, step);
                 std::swap(in_gpu, out_gpu);
             }
 
