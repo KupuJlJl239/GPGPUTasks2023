@@ -77,8 +77,6 @@ int main(int argc, char **argv)
     as_gpu.writeN(as.data(), n);
     sum_gpu.resizeN(1);
 
-    const uint zero = 0;
-
     auto simple_cpu_sum = [&](){
         uint sum = 0;
         for (uint a : as) {
@@ -103,6 +101,7 @@ int main(int argc, char **argv)
         kernel.compile();
 
         auto run = [&](){
+            uint zero = 0;
             sum_gpu.writeN(&zero, 1);
             kernel.exec(work_size,n, as_gpu,sum_gpu);
         };
