@@ -58,7 +58,7 @@ int main(int argc, char **argv)
     context.init(device.device_id_opencl);
     context.activate();
 
-    int benchmarkingIters = 10;
+    int benchmarkingIters = 1;
     unsigned int M = 256;
     unsigned int K = 256;
     unsigned int N = 256;
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
     test_matrix_mult_gpu("1", matrix_multiplication_1, matrix_multiplication_1_length, "matrix_multiplication",
                          gpu::WorkSize(16, 16, M, N));
     test_matrix_mult_gpu("2", matrix_multiplication_2, matrix_multiplication_2_length, "matrix_multiplication",
-                         gpu::WorkSize(16, 4, M, N/4));
+                         gpu::WorkSize(16, 16/4, N, M/4));
 
 
 
