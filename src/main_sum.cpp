@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 {
     int benchmarkingIters = 10;
 
-    uint n = 10*1000*1000; VEC<uint> as;
+    uint n = 1000*1000; VEC<uint> as;
     const uint expected_sum = generate_array(n, as);
     const double mflops = (n/1000.0/1000.0);
 
@@ -76,6 +76,8 @@ int main(int argc, char **argv)
     as_gpu.resizeN(n);
     as_gpu.writeN(as.data(), n);
     sum_gpu.resizeN(1);
+
+    const uint zero = 0;
 
     auto simple_cpu_sum = [&](){
         uint sum = 0;
@@ -101,6 +103,7 @@ int main(int argc, char **argv)
         kernel.compile();
 
         auto run = [&](){
+            sum_gpu.writeN(&zero, 1);
             kernel.exec(work_size,n, as_gpu,sum_gpu);
         };
 
