@@ -77,7 +77,35 @@ int main(int argc, char **argv)
 		}
 
 		{
-			// TODO: implement on OpenCL
+            gpu::gpu_mem_32u as_gpu;
+            as_gpu.resizeN(n);
+
+            int log_n = 1;
+            while((1 << log_n) < n)
+                log_n += 1;
+
+            auto work_size = gpu::WorkSize(128, n);
+            ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum");
+            prefix_sum.compile();
+
+            timer t;
+            for (int iter = 0; iter < benchmarkingIters; ++iter) {
+                as_gpu.writeN(as.data(), n);
+                t.restart();    // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
+
+                for(uint step = 0; step < log_n; step++)
+                    prefix_sum.exec(work_size, as_gpu, step);
+
+                t.nextLap();
+            }
+            std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+            std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
+            as_gpu.readN(as.data(), n);
 		}
+
+        // Проверяем корректность результатов
+        for (int i = 0; i < n; ++i) {
+            EXPECT_THE_SAME(as[i], bs[i], "GPU results should be equal to CPU results!");
+        }
 	}
 }
