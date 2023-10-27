@@ -11,5 +11,5 @@ __kernel void prefix_sum(__global uint* arr, uint step)
 {
     const uint gid = get_global_id(0);
     if(gid & (1 << step))
-        arr[gid] += arr[gid - (1 << step)];
+        arr[gid] += arr[((gid >> step) << step) - 1];
 }

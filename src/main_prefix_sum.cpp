@@ -22,10 +22,17 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 int main(int argc, char **argv)
 {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+
 	int benchmarkingIters = 10;
 	unsigned int max_n = (1 << 24);
+    unsigned int min_n = 4096;
 
-	for (unsigned int n = 4096; n <= max_n; n *= 4) {
+	for (unsigned int n = min_n; n <= max_n; n *= 4) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
 		std::cout << "n=" << n << " values in range: [" << 0 << "; " << values_range << "]" << std::endl;
@@ -76,9 +83,13 @@ int main(int argc, char **argv)
 			std::cout << "CPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
 		}
 
+        auto cs = as;
 		{
-            gpu::gpu_mem_32u as_gpu;
-            as_gpu.resizeN(n);
+
+
+
+            gpu::gpu_mem_32u cs_gpu;
+            cs_gpu.resizeN(n);
 
             int log_n = 1;
             while((1 << log_n) < n)
@@ -90,22 +101,22 @@ int main(int argc, char **argv)
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                as_gpu.writeN(as.data(), n);
+                cs_gpu.writeN(as.data(), n);
                 t.restart();    // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-                for(uint step = 0; step < log_n; step++)
-                    prefix_sum.exec(work_size, as_gpu, step);
-
+                for(uint step = 0; step < log_n; step++){
+                    prefix_sum.exec(work_size, cs_gpu, step);
+                }
                 t.nextLap();
             }
             std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
-            as_gpu.readN(as.data(), n);
+            cs_gpu.readN(cs.data(), n);
 		}
 
         // Проверяем корректность результатов
         for (int i = 0; i < n; ++i) {
-            EXPECT_THE_SAME(as[i], bs[i], "GPU results should be equal to CPU results!");
+            EXPECT_THE_SAME(cs[i], bs[i], "GPU results should be equal to CPU results!");
         }
 	}
 }
