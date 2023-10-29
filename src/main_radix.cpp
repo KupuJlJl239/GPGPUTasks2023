@@ -10,6 +10,129 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+#include <cassert>
+
+using uint = unsigned int;
+#define VEC std::vector
+
+#define LOG_GROUP_SIZE 3
+#define GROUP_SIZE (1 << LOG_GROUP_SIZE)
+
+
+
+void print_array(const VEC<uint>& arr){
+    for(uint el: arr)
+        std::cout << el << " ";
+    std::cout << std::endl;
+}
+
+void print_gpu_array(gpu::gpu_mem_32u& gpu_arr){
+    VEC<uint> arr(gpu_arr.size() / sizeof(uint));
+    gpu_arr.readN(arr.data(), arr.size());
+    print_array(arr);
+}
+
+
+VEC<uint> gpu_prefix_sum(const VEC<uint>& arr){
+    ocl::Kernel prefix_sum_forward(radix_kernel, radix_kernel_length, "prefix_sum_forward");
+    prefix_sum_forward.compile();
+
+    ocl::Kernel prefix_sum_backward(radix_kernel, radix_kernel_length, "prefix_sum_backward");
+    prefix_sum_backward.compile();
+
+
+    VEC<gpu::gpu_mem_32u> prefix_levels;
+    const uint N = arr.size();
+    uint size = N;
+    while(size > 1){
+        gpu::gpu_mem_32u gpu_arr;
+        gpu_arr.resizeN(size);
+        prefix_levels.push_back(std::move(gpu_arr));
+        size = (size + GROUP_SIZE - 1) / GROUP_SIZE;
+    }
+    gpu::gpu_mem_32u gpu_arr;
+    gpu_arr.resizeN(1);
+    prefix_levels.push_back(std::move(gpu_arr));
+
+    const int LEVELS = prefix_levels.size();
+
+
+    prefix_levels[0].writeN(arr.data(), N);
+
+
+    for(int i = 0; i < LEVELS - 1; i++){
+        std::cout << "forward, level " << i << std::endl;
+        print_gpu_array(prefix_levels[i]);
+        print_gpu_array(prefix_levels[i+1]);
+
+        auto ws = gpu::WorkSize(GROUP_SIZE/2, N/2);
+        prefix_sum_forward.exec(ws, prefix_levels[i], prefix_levels[i + 1], prefix_levels[i].size() / sizeof(uint));
+
+        print_gpu_array(prefix_levels[i]);
+        print_gpu_array(prefix_levels[i+1]);
+    }
+
+    for(int i = LEVELS - 2; i >= 0; i--){
+        std::cout << "backward, level " << i << std::endl;
+        print_gpu_array(prefix_levels[i]);
+        print_gpu_array(prefix_levels[i+1]);
+
+        auto ws = gpu::WorkSize(GROUP_SIZE/2, N/2);
+        prefix_sum_backward.exec(ws, prefix_levels[i], prefix_levels[i + 1], prefix_levels[i].size() / sizeof(uint));
+
+        print_gpu_array(prefix_levels[i]);
+        print_gpu_array(prefix_levels[i+1]);
+    }
+
+
+    VEC<uint> res(N);
+    prefix_levels[0].readN(res.data(), N);
+    return res;
+}
+
+
+void random_test_prefix_sum(uint n){
+    std::cout << "--------------- " << "random_test_prefix_sum: n = " << n << " ---------------"<< std::endl;
+    uint values_range = std::min<uint>(1023, std::numeric_limits<int>::max() / n);
+
+
+//    VEC<uint> arr(n, 0);
+//    FastRandom r(n);
+//    for (int i = 0; i < n; ++i) {
+//        arr[i] = r.next(0, values_range);
+//    }
+    VEC<uint> arr(13, 1);
+    n = arr.size();
+
+    VEC<uint> prefix_sums(n, 0);
+    for (int i = 0; i < n; ++i) {
+        prefix_sums[i] = arr[i];
+        if (i) {
+            prefix_sums[i] += prefix_sums[i-1];
+        }
+    }
+
+    auto result = gpu_prefix_sum(arr);
+    print_array(prefix_sums);
+    print_array(result);
+    assert(prefix_sums == result);
+}
+
+
+
+int main(int argc, char **argv) {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+
+    random_test_prefix_sum(GROUP_SIZE);
+
+}
+
+
+
 
 
 template<typename T>
@@ -22,8 +145,7 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
-
-int main(int argc, char **argv) {
+int _main(int argc, char **argv) {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
     gpu::Context context;
