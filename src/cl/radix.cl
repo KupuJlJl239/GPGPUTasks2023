@@ -9,7 +9,7 @@
 
 // число элементов для которых считаем префиксную сумму локально
 // размер рабочей группы вдвое меньше
-#define LOG_GROUP_SIZE 7
+#define LOG_GROUP_SIZE 3
 #define GROUP_SIZE (1 << LOG_GROUP_SIZE)
 
 // arr имеет длину ровно GROUP_SIZE
@@ -66,7 +66,28 @@ __kernel void prefix_sum_backward(__global uint *arr, __global uint *sums, uint 
         arr[2 * gid + 1] += sum;
 }
 
+__kernel void bit_k(__global uint *arr, __global uint *bits, uint bit_number){
+    uint gid = get_global_id(0);
+    bits[gid] = (arr[gid] >> bit_number) & 1;
+}
 
-__kernel void radix(__global unsigned int *as) {
-    // TODO
+
+__kernel void radix(__global uint *arr, __global const uint *prefix_ones, const uint N, uint bit_number) {
+    uint gid = get_global_id(0);
+    uint arr_i = gid < N ? arr[gid] : 0;
+    char bit = (arr_i >> bit_number) & 1;
+
+    uint ones_before = 0 < gid && gid < N ? prefix_ones[gid - 1] : 0;
+    uint zeros_before = gid - ones_before;
+    uint ones_total = prefix_ones[N - 1];
+    uint zeros_total = N - ones_total;
+
+    uint idx = bit ? zeros_total + ones_before : zeros_before;
+
+//    if(gid < N && (arr_i < 0 || 128 < arr_i) )
+//        printf("gid=%d, idx=%d, arr_i=%d\n", gid, idx, arr_i);
+
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    if(gid < N)
+        arr[idx] = arr_i;
 }
