@@ -10,7 +10,7 @@
 using uint = unsigned int;
 #define VEC std::vector
 
-#define LOG_GROUP_SIZE 3
+#define LOG_GROUP_SIZE 8
 #define GROUP_SIZE (1 << LOG_GROUP_SIZE)
 
 template<typename T>
@@ -63,9 +63,6 @@ void test_gpu_prefix_sum(const VEC<uint>& arr, const VEC<uint>& expected, const 
     const int N = arr.size();
     VEC<gpu::gpu_mem_32u> prefix_levels = create_buffers_for_prefix_sum(N);
     const int LEVELS = prefix_levels.size();
-
-    std::cout << LEVELS << std::endl;
-
 
     timer t;
     for (int iter = 0; iter < benchmarkingIters; ++iter) {

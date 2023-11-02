@@ -9,7 +9,7 @@
 
 // число элементов для которых считаем префиксную сумму локально
 // размер рабочей группы вдвое меньше
-#define LOG_GROUP_SIZE 3
+#define LOG_GROUP_SIZE 8
 #define GROUP_SIZE (1 << LOG_GROUP_SIZE)
 
 // arr имеет длину ровно GROUP_SIZE
@@ -21,6 +21,7 @@ inline void local_prefix_sum(__local uint *arr){
         uint from_idx = base - 1;
         uint to_idx = base + rest;
         arr[to_idx] += arr[from_idx];
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
 }
 
@@ -38,6 +39,7 @@ __kernel void prefix_sum_forward(__global uint *arr, __global uint *sums, uint N
 
     local_arr[2 * lid] = 2 * gid < N? arr[2 * gid] : 0;
     local_arr[2 * lid + 1] = 2 * gid + 1 < N? arr[2 * gid + 1] : 0;
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     // после этого в local_arr лежат не элементы массива, а префиксные суммы
     local_prefix_sum(local_arr);
