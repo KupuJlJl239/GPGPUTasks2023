@@ -66,14 +66,19 @@ void run_gpu_prefix_sum(
     const auto ws = gpu::WorkSize(work_group_size, work_group_size * work_groups);
 
     for(int i = 0; i < LEVELS - 1; i++){
-//        std::cout << "forward, level " << i << std::endl;
-//        print_gpu_array(buffers[i]);
-//        print_gpu_array(buffers[i+1]);
-        prefix_sum_forward.exec(ws, buffers[i], buffers[i + 1], buffers[i].size() / sizeof(uint));
+        std::cout << "forward, level " << i << std::endl;
+        print_gpu_array(buffers[i]);
+        print_gpu_array(buffers[i+1]);
+        uint size_i = buffers[i].size() / sizeof(uint);
+        prefix_sum_forward.exec(ws, buffers[i], buffers[i + 1], size_i);
     }
 
     for(int i = LEVELS - 2; i >= 0; i--){
-        prefix_sum_backward.exec(ws, buffers[i], buffers[i + 1], buffers[i].size() / sizeof(uint));
+        std::cout << "backward, level " << i << std::endl;
+        print_gpu_array(buffers[i]);
+        print_gpu_array(buffers[i+1]);
+        uint size_i = buffers[i].size() / sizeof(uint);
+        prefix_sum_backward.exec(ws, buffers[i], buffers[i + 1], size_i);
     }
 }
 
@@ -117,7 +122,7 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
 
-void test_radix_gpu(VEC<uint> arr, const VEC<uint> expected, uint benchmarkingIters){
+void test_radix_gpu(VEC<uint> arr, const VEC<uint>& expected, uint benchmarkingIters){
     // кернелы для префиксной суммы
     ocl::Kernel prefix_sum_forward(radix_kernel, radix_kernel_length, "prefix_sum_forward");
     prefix_sum_forward.compile();
@@ -150,21 +155,21 @@ void test_radix_gpu(VEC<uint> arr, const VEC<uint> expected, uint benchmarkingIt
 //        print_gpu_array(arr_gpu);
         t.restart();
         for(uint bit = 0; bit < 32; bit++){
-//            std::cout << "----- k = " << bit << " ----------------------\n";
+            std::cout << "----- k = " << bit << " ----------------------\n";
             // помещаем данные в верхний слой
             bit_k.exec(gpu::WorkSize(128, N), arr_gpu, buffers[0], bit);
-//            std::cout << "arr and k-th bit in arr:\n";
-//            print_gpu_array(arr_gpu);
-//            print_gpu_array(buffers[0]);
+            std::cout << "arr and k-th bit in arr:\n";
+            print_gpu_array(arr_gpu);
+            print_gpu_array(buffers[0]);
 
             // запускаем прямой и обратные проход префиксной суммы
             run_gpu_prefix_sum(buffers, prefix_sum_forward, prefix_sum_backward);
-//            std::cout << "prefix sum:\n";
-//            print_gpu_array(buffers[0]);
+            std::cout << "prefix sum:\n";
+            print_gpu_array(buffers[0]);
 
             radix.exec(gpu::WorkSize(128, N), arr_gpu, buffers[0], N,bit);
-//            std::cout << "array sorted by k-th bit:\n";
-//            print_gpu_array(arr_gpu);
+            std::cout << "array sorted by k-th bit:\n";
+            print_gpu_array(arr_gpu);
         }
         t.nextLap();
     }
@@ -192,14 +197,14 @@ int main(int argc, char **argv) {
     context.activate();
 
     int benchmarkingIters = 10;
-    unsigned int N = 4*1024;
-    std::vector<unsigned int> arr(N, 0);
-    FastRandom r(12345);
-    for (unsigned int i = 0; i < N; ++i) {
-        arr[i] = N - i; // (unsigned int) r.next(0, std::numeric_limits<int>::max());
-    }
-//    VEC<uint> arr = {1,4,3,5,6,2,8,7};
-//    uint N = arr.size();
+//    unsigned int N = 4*1024;
+//    std::vector<unsigned int> arr(N, 0);
+//    FastRandom r(12345);
+//    for (unsigned int i = 0; i < N; ++i) {
+//        arr[i] = N - i; // (unsigned int) r.next(0, std::numeric_limits<int>::max());
+//    }
+    VEC<uint> arr = {1,4,3,5,6,2,8,7};
+    uint N = arr.size();
     std::cout << "Data generated for N=" << N << "!" << std::endl;
 
     std::vector<unsigned int> cpu_sorted;
