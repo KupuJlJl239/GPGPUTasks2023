@@ -9,7 +9,7 @@
 
 // число элементов для которых считаем префиксную сумму локально
 // размер рабочей группы вдвое меньше
-#define LOG_GROUP_SIZE 8
+#define LOG_GROUP_SIZE 3
 #define GROUP_SIZE (1 << LOG_GROUP_SIZE)
 
 // arr имеет длину ровно GROUP_SIZE

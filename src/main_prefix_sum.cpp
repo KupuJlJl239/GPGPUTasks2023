@@ -10,8 +10,10 @@
 using uint = unsigned int;
 #define VEC std::vector
 
-#define LOG_GROUP_SIZE 8
+#define LOG_GROUP_SIZE 3
 #define GROUP_SIZE (1 << LOG_GROUP_SIZE)
+
+#define ROUND_UP_TO(n, p) (((n+p-1)/p)*p)
 
 template<typename T>
 void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line)
@@ -54,29 +56,54 @@ VEC<gpu::gpu_mem_32u> create_buffers_for_prefix_sum(const uint N){
 }
 
 void test_gpu_prefix_sum(const VEC<uint>& arr, const VEC<uint>& expected, const uint benchmarkingIters){
+//    std::cout << "Compiling kernels... ";
     ocl::Kernel prefix_sum_forward(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_forward");
     prefix_sum_forward.compile();
-
     ocl::Kernel prefix_sum_backward(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_backward");
     prefix_sum_backward.compile();
+//    std::cout << "Ready.\n";
 
-    const int N = arr.size();
+    const uint N = arr.size();
     VEC<gpu::gpu_mem_32u> prefix_levels = create_buffers_for_prefix_sum(N);
-    const int LEVELS = prefix_levels.size();
+    const uint LEVELS = prefix_levels.size();
+//    std::cout << "array size: N = " << N << "\n";
+//    std::cout << "count of buffers: LEVELS = " << LEVELS << "\n";
+//
+//    for(int i = 0; i < LEVELS; i++){
+//        std::cout << "  size of level " << i << " = " << prefix_levels[i].size()/sizeof(uint) << "\n";
+//    }
+
 
     timer t;
     for (int iter = 0; iter < benchmarkingIters; ++iter) {
+//        std::cout << "Writing initial array... ";
         prefix_levels[0].writeN(arr.data(), N);
+//        std::cout << "Ready.\n";
+
         t.restart();    // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
         for(int i = 0; i < LEVELS - 1; i++){
-            auto ws = gpu::WorkSize(GROUP_SIZE/2, N/2);
-            prefix_sum_forward.exec(ws, prefix_levels[i], prefix_levels[i + 1], prefix_levels[i].size() / sizeof(uint));
+//            std::cout << "forward, step " << i << "\n";
+//            print_gpu_array(prefix_levels[i]);
+
+            uint size_i = prefix_levels[i].size() / sizeof(uint);
+            uint size_i_plus_1 = prefix_levels[i+1].size() / sizeof(uint);
+            auto ws = gpu::WorkSize(GROUP_SIZE/2, size_i_plus_1 * GROUP_SIZE/2);
+            prefix_sum_forward.exec(ws, prefix_levels[i], prefix_levels[i + 1], size_i);
+
+//            print_gpu_array(prefix_levels[i+1]);
         }
 
         for(int i = LEVELS - 2; i >= 0; i--){
-            auto ws = gpu::WorkSize(GROUP_SIZE/2, N/2);
-            prefix_sum_backward.exec(ws, prefix_levels[i], prefix_levels[i + 1], prefix_levels[i].size() / sizeof(uint));
+//            std::cout << "backward, step " << i << "\n";
+//            print_gpu_array(prefix_levels[i+1]);
+
+            uint size_i = prefix_levels[i].size() / sizeof(uint);
+            uint size_i_plus_1 = prefix_levels[i+1].size() / sizeof(uint);
+            auto ws = gpu::WorkSize(GROUP_SIZE/2, size_i_plus_1 * GROUP_SIZE/2);
+            prefix_sum_backward.exec(ws, prefix_levels[i], prefix_levels[i + 1], size_i);
+
+//            print_gpu_array(prefix_levels[i]);
         }
 
         t.nextLap();
@@ -104,6 +131,12 @@ int main(int argc, char **argv)
     gpu::Context context;
     context.init(device.device_id_opencl);
     context.activate();
+
+//    auto arr = std::vector<uint>(1024, 1);
+//    auto expected = std::vector<uint>{1,2,3,4,5,6,7,8, 9};
+//    test_gpu_prefix_sum(arr, expected, 1);
+//
+//    return 0;
 
 	int benchmarkingIters = 10;
 	unsigned int max_n = (1 << 24);
